@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flushing Food Tour</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root {
+            --primary: #e63946;
+            --secondary: #1d3557;
+            --spa-color: #9b5de5;
+            --dessert-color: #fb8500;
+            --background: #f1faee;
+            --text: #1d3557;
+            --card-bg: #ffffff;
+            --star-color: #fca311;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        #content-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #map {
+            flex: 1;
+            min-height: 40vh;
+            width: 100%;
+            z-index: 1;
+        }
+
+        #scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            background-color: var(--background);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #list-container {
+            padding: 1rem;
+        }
+
+        #itinerary-container {
+            padding: 1rem 1.5rem 2rem;
+            background-color: white;
+            border-top: 2px solid #ddd;
+            margin-top: auto;
+        }
+
+        .stop-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--primary);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        
+        .stop-card.spa-card {
+            border-left: 4px solid var(--spa-color);
+        }
+
+        .stop-card.dessert-card {
+            border-left: 4px solid var(--dessert-color);
+        }
+
+        .stop-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .stop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .stop-name-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stop-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin: 0 0 4px 0;
+            color: var(--secondary);
+        }
+
+        .stop-rating {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .star-icon {
+            color: var(--star-color);
+        }
+
+        .spa-card .stop-name {
+            color: var(--spa-color);
+        }
+
+        .dessert-card .stop-name a {
+            color: var(--dessert-color) !important;
+            border-bottom-color: var(--dessert-color) !important;
+        }
+
+        .stop-type {
+            font-size: 0.8rem;
+            background-color: var(--secondary);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .spa-card .stop-type {
+            background-color: var(--spa-color);
+        }
+
+        .dessert-card .stop-type {
+            background-color: var(--dessert-color);
+        }
+
+        .stop-address {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .stop-desc {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        /* Itinerary Styling */
+        .itinerary-step {
+            display: flex;
+            margin-bottom: 1rem;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            background-color: var(--secondary);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .itinerary-step:nth-child(5) .step-number {
+            background-color: var(--dessert-color);
+        }
+        
+        .itinerary-step p {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        /* Desktop optimizations */
+        @media (min-width: 768px) {
+            #content-container {
+                flex-direction: row;
+            }
+            #map {
+                flex: 2;
+                height: 100%;
+            }
+            #scrollable-content {
+                flex: 1;
+                max-width: 450px;
+                box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+                z-index: 2;
+            }
+        }
+        
+        /* Popup Styling */
+        .leaflet-popup-content h3 {
+            margin: 0 0 2px 0;
+            color: var(--primary);
+        }
+        .leaflet-popup-content .popup-rating {
+            margin: 0 0 5px 0;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+        }
+        .leaflet-popup-content p {
+            margin: 0;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Flushing Food Tour</h1>
+    </header>
+
+    <div id="content-container">
+        <div id="map"></div>
+        <div id="scrollable-content">
+            <div id="list-container">
+                <!-- Stops will be injected here via JavaScript -->
+            </div>
+            
+            <div id="itinerary-container">
+                <h2 style="margin-top: 0; color: var(--secondary); border-bottom: 2px solid #eee; padding-bottom: 0.5rem;">Suggested Itinerary</h2>
+                
+                <div class="itinerary-step">
+                    <div class="step-number">1</div>
+                    <p><strong>Appetizers:</strong> Start off light by grabbing savory Jianbing from <strong>Eight Jane</strong> or steamed buns from <strong>Yuan Wei</strong>.</p>
+                </div>
+                
+                <div class="itinerary-step">
+                    <div class="step-number" style="background-color: var(--spa-color)">2</div>
+                    <p><strong>Relax & Digest:</strong> Walk to <strong>Amazing Time Beauty</strong> to completely unwind with a Head Spa or massage while your appetizers settle.</p>
+                </div>
+
+                <div class="itinerary-step">
+                    <div class="step-number">3</div>
+                    <p><strong>The Main Event:</strong> Head over to <strong>Xi'an Famous Foods</strong>, <strong>Chopin Noodle House</strong>, or <strong>Henan Feng Wei</strong> for hand-ripped noodles, or grab some amazing dumplings at <strong>Zhu Ji Dumpling House</strong>.</p>
+                </div>
+                
+                <div class="itinerary-step">
+                    <div class="step-number" style="background-color: var(--dessert-color)">4</div>
+                    <p><strong>Sweet Finish:</strong> Conclude the trip with a silky tofu pudding at <strong>Soy Bean Chen Flower Shop</strong>, grab some incredible egg tarts from <strong>Na Tart</strong>, or get the best brown sugar boba at <strong>Xing Fu Tang</strong>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // Data for our stops with precise coordinates and accurate Google Maps ratings
+        const stops = [
+            {
+                id: 1,
+                name: "Eight Jane",
+                type: "Chinese Street Food",
+                rating: "4.5",
+                address: "37-12 Main St, Flushing, NY 11354",
+                desc: "A popular street food stall specializing in Jianbing (savory Chinese crepes) which can easily be made vegetarian.",
+                lat: 40.761032,
+                lng: -73.831354,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 2,
+                name: "Henan Feng Wei",
+                type: "Hand-Pulled Noodles",
+                rating: "4.5",
+                address: "136-31 41st Ave, Flushing, NY 11355",
+                desc: "A legendary underground hole-in-the-wall known for amazing hand-pulled noodles and authentic Henan cuisine.",
+                lat: 40.759008,
+                lng: -73.828461,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 3,
+                name: "Zhu Ji Dumpling House",
+                type: "Dumplings",
+                rating: "4.5",
+                address: "40-52 Main St, Flushing, NY 11354",
+                desc: "Highly rated, authentic, old-school hole-in-the-wall dumpling spot. Famous for cheap pan-fried buns and dumplings.",
+                lat: 40.758226,
+                lng: -73.829692,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 4,
+                name: "Chopin Noodle House",
+                type: "Lanzhou Noodles",
+                rating: "4.4",
+                address: "37-11 Main St, Flushing, NY 11354",
+                desc: "Fresh, hand-pulled Lanzhou-style noodles inside a bustling food court. A favorite for authentic noodle bowls.",
+                lat: 40.761250,
+                lng: -73.830791,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 5,
+                name: "Ginza Don",
+                type: "Japanese Donburi",
+                rating: "4.8",
+                address: "41-28 Main St, Flushing, NY 11355",
+                desc: "Incredibly highly rated casual spot serving delicious Japanese rice bowls (Donburi).",
+                lat: 40.757203,
+                lng: -73.829399,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 6,
+                name: "Xi'an Famous Foods",
+                type: "Hand-Ripped Noodles",
+                rating: "4.4",
+                address: "41-10 Main St, Flushing, NY 11355",
+                desc: "Fast-casual spot famous for noodles. Try the vegetarian Spicy Hot-Oil Hand-Ripped Noodles or Cold Skin Noodles.",
+                lat: 40.757864,
+                lng: -73.829512,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 7,
+                name: "Old Street Pan Fried Dumplings",
+                type: "Pan-Fried Dumplings",
+                rating: "4.0",
+                address: "135-45 Roosevelt Ave, Flushing, NY 11354",
+                desc: "A tiny hole-in-the-wall. Famous for crispy pork buns, but they also make fantastic crispy Mushroom and Vegetable Dumplings.",
+                lat: 40.759593,
+                lng: -73.830485,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 8,
+                name: "Xing Fu Tang",
+                type: "Boba / Milk Tea",
+                rating: "4.2",
+                address: "40-52 Main St, Flushing, NY 11354",
+                desc: "Known for having the best brown sugar boba in NYC. They make their boba pearls fresh in-store!",
+                lat: 40.758326,
+                lng: -73.829692,
+                isSpa: false,
+                isDessert: true
+            },
+            {
+                id: 9,
+                name: "Meet Fresh",
+                type: "Taiwanese Dessert",
+                rating: "4.1",
+                address: "39-16 Main St, Flushing, NY 11354",
+                desc: "Great spot for authentic Taiwanese sweets like shaved ice, taro balls, herbal jelly, and mochi.",
+                lat: 40.760670,
+                lng: -73.830684,
+                isSpa: false,
+                isDessert: true
+            },
+            {
+                id: 10,
+                name: "Soy Bean Chen Flower Shop",
+                type: "Tofu Specialty",
+                rating: "4.5",
+                address: "135-26 Roosevelt Ave, Flushing, NY 11354",
+                desc: "A true hidden gem located inside a flower shop. Famous for ultra-cheap, silky smooth fresh tofu pudding (sweet or savory).",
+                lat: 40.759068,
+                lng: -73.831014,
+                isSpa: false,
+                isDessert: true
+            },
+            {
+                id: 11,
+                name: "Yuan Wei Steamed Buns",
+                type: "Steamed Buns",
+                rating: "4.6",
+                address: "134-16 36th Road, Flushing, NY 11354",
+                desc: "A fantastic casual spot for authentic Chinese breakfast items, famous for their steamed buns and sticky rice bowls.",
+                lat: 40.761387,
+                lng: -73.833240,
+                isSpa: false,
+                isDessert: false
+            },
+            {
+                id: 12,
+                name: "Na Tart",
+                type: "Egg Tarts",
+                rating: "4.0",
+                address: "136-11 38th Ave, Flushing, NY 11354",
+                desc: "Specializes in incredible modern and Portuguese-style handmade egg tarts with a variety of innovative flavors.",
+                lat: 40.7600,
+                lng: -73.8295,
+                isSpa: false,
+                isDessert: true
+            },
+            {
+                id: 13,
+                name: "Amazing Time Beauty",
+                type: "Spa & Wellness",
+                rating: "4.8",
+                address: "36-20 Union St, #2F, Flushing, NY 11354",
+                desc: "A fantastic wellness spa perfectly situated to offer deep relaxation, massage, and head spa treatments during your food tour.",
+                lat: 40.763196,
+                lng: -73.828159,
+                isSpa: true,
+                isDessert: false
+            },
+            {
+                id: 14,
+                name: "Mystery Skewers???",
+                type: "Street Food",
+                rating: "N/A",
+                address: "Prince St & 38th Ave, Flushing, NY 11354",
+                desc: "A mysterious late-night skewer cart location. Who knows what you'll find here, but it's bound to be delicious!",
+                lat: 40.760148,
+                lng: -73.832618,
+                isSpa: false,
+                isDessert: false
+            }
+        ];
+
+        // Initialize Map
+        const map = L.map('map').setView([40.758, -73.829], 16);
+
+        // Add Map Tiles (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Custom Icons
+        const redIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+        
+        const purpleIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+        
+        const orangeIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        const listContainer = document.getElementById('list-container');
+        const markers = {};
+
+        // Sort stops: Spa first, then Non-dessert food, then Dessert
+        stops.sort((a, b) => {
+            if (a.isSpa && !b.isSpa) return -1;
+            if (!a.isSpa && b.isSpa) return 1;
+            if (a.isDessert && !b.isDessert) return 1;
+            if (!a.isDessert && b.isDessert) return -1;
+            return a.id - b.id;
+        });
+
+        // Populate Map and List
+        stops.forEach(stop => {
+            // Add Marker
+            let iconToUse = redIcon;
+            let popupColor = "var(--primary)";
+            
+            if (stop.isSpa) {
+                iconToUse = purpleIcon;
+                popupColor = "var(--spa-color)";
+            } else if (stop.isDessert) {
+                iconToUse = orangeIcon;
+                popupColor = "var(--dessert-color)";
+            }
+            
+            const marker = L.marker([stop.lat, stop.lng], {icon: iconToUse}).addTo(map);
+            
+            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.name + ' ' + stop.address)}`;
+            
+            marker.bindPopup(`
+                <h3><a href="${mapsUrl}" target="_blank" style="color: ${popupColor}; text-decoration: none; border-bottom: 1px dotted ${popupColor};">${stop.name} ↗</a></h3>
+                <div class="popup-rating"><span class="star-icon">★</span> ${stop.rating}</div>
+                <p><strong>${stop.type}</strong></p>
+                <p>${stop.desc}</p>
+            `);
+            markers[stop.id] = marker;
+
+            // Add List Item
+            const card = document.createElement('div');
+            
+            let cardClass = 'stop-card';
+            if (stop.isSpa) cardClass += ' spa-card';
+            if (stop.isDessert) cardClass += ' dessert-card';
+            
+            card.className = cardClass;
+            
+            card.innerHTML = `
+                <div class="stop-header">
+                    <div class="stop-name-container">
+                        <h3 class="stop-name"><a href="${mapsUrl}" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor;" onclick="event.stopPropagation()">${stop.name} ↗</a></h3>
+                        <div class="stop-rating"><span class="star-icon">★</span> ${stop.rating}</div>
+                    </div>
+                    <span class="stop-type">${stop.type}</span>
+                </div>
+                <div class="stop-address">📍 ${stop.address}</div>
+                <p class="stop-desc">${stop.desc}</p>
+            `;
+            
+            // Add Click Event to List Item
+            card.addEventListener('click', () => {
+                map.setView([stop.lat, stop.lng], 18);
+                marker.openPopup();
+                
+                // On mobile, scroll to top so map is visible
+                if (window.innerWidth < 768) {
+                    document.getElementById('scrollable-content').scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+
+            listContainer.appendChild(card);
+        });
+        
+        // Fit map to markers bounds
+        const group = new L.featureGroup(Object.values(markers));
+        map.fitBounds(group.getBounds().pad(0.1));
+
+    </script>
+</body>
+</html>
