@@ -12,6 +12,7 @@
             --secondary: #1d3557;
             --spa-color: #9b5de5;
             --dessert-color: #fb8500;
+            --transit-color: #028090;
             --background: #f1faee;
             --text: #1d3557;
             --card-bg: #ffffff;
@@ -91,6 +92,10 @@
             border-left: 4px solid var(--spa-color);
         }
 
+        .stop-card.transit-card {
+            border-left: 4px solid var(--transit-color);
+        }
+
         .stop-card.dessert-card {
             border-left: 4px solid var(--dessert-color);
         }
@@ -133,6 +138,10 @@
             color: var(--spa-color);
         }
 
+        .transit-card .stop-name {
+            color: var(--transit-color);
+        }
+
         .dessert-card .stop-name a {
             color: var(--dessert-color) !important;
             border-bottom-color: var(--dessert-color) !important;
@@ -149,6 +158,10 @@
 
         .spa-card .stop-type {
             background-color: var(--spa-color);
+        }
+
+        .transit-card .stop-type {
+            background-color: var(--transit-color);
         }
 
         .dessert-card .stop-type {
@@ -277,6 +290,19 @@
     <script>
         // Data for our stops with precise coordinates and accurate Google Maps ratings
         const stops = [
+            {
+                id: 0,
+                name: "Flushing-Main St Station",
+                type: "Transit",
+                rating: "N/A",
+                address: "Roosevelt Ave & Main St, Flushing, NY 11354",
+                desc: "The terminus of the 7 train and your starting point for the food tour.",
+                lat: 40.759588,
+                lng: -73.830020,
+                isSpa: false,
+                isDessert: false,
+                isTransit: true
+            },
             {
                 id: 1,
                 name: "Eight Jane",
@@ -484,11 +510,22 @@
             shadowSize: [41, 41]
         });
 
+        const blueIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
         const listContainer = document.getElementById('list-container');
         const markers = {};
 
-        // Sort stops: Spa first, then Non-dessert food, then Dessert
+        // Sort stops: Transit first, then Spa, then Non-dessert food, then Dessert
         stops.sort((a, b) => {
+            if (a.isTransit && !b.isTransit) return -1;
+            if (!a.isTransit && b.isTransit) return 1;
             if (a.isSpa && !b.isSpa) return -1;
             if (!a.isSpa && b.isSpa) return 1;
             if (a.isDessert && !b.isDessert) return 1;
@@ -502,7 +539,10 @@
             let iconToUse = redIcon;
             let popupColor = "var(--primary)";
             
-            if (stop.isSpa) {
+            if (stop.isTransit) {
+                iconToUse = blueIcon;
+                popupColor = "var(--transit-color)";
+            } else if (stop.isSpa) {
                 iconToUse = purpleIcon;
                 popupColor = "var(--spa-color)";
             } else if (stop.isDessert) {
@@ -526,6 +566,7 @@
             const card = document.createElement('div');
             
             let cardClass = 'stop-card';
+            if (stop.isTransit) cardClass += ' transit-card';
             if (stop.isSpa) cardClass += ' spa-card';
             if (stop.isDessert) cardClass += ' dessert-card';
             
